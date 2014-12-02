@@ -17,7 +17,7 @@ Inductive constr := constr_def : cname -> list tname -> constr.
 
 
 
-
+(* 比較演算子がない *)
 Inductive binop :=
 | b_and
 | b_or
@@ -78,9 +78,9 @@ Record program := { Pmods : list mname; Pdecls : list declaration; Pmain : proc 
 Record in_program := { Idecls : list declaration; current : proc }.
 
 
-Variable var_val : vname -> val -> Prop.
-Variable var_val_eq :forall v v1 v2, var_val v v1 -> var_val v v2 -> v1 = v2.
-Variable var_val_neq : forall v v1 v2, ~ var_val v v1 -> var_val v v2 -> v1 <> v2.
+Axiom var_val : vname -> val -> Prop.
+Axiom var_val_eq :forall v v1 v2, var_val v v1 -> var_val v v2 -> v1 = v2.
+Axiom var_val_neq : forall v v1 v2, ~ var_val v v1 -> var_val v v2 -> v1 <> v2.
 
 (*
 Inductive list_forall {A B : Type} (P : A -> B -> Prop) : list A -> list B -> Prop :=
@@ -116,7 +116,7 @@ with exp_val_constructor : exp -> con_values -> Prop :=
 
 
 
-Variable pname_decl : list declaration -> pname -> proc -> Prop.
+Axiom pname_decl : list declaration -> pname -> proc -> Prop.
 
 (* no type checking. If a program is not well-typed, the semantics of it may not be defined. *)
 
@@ -126,6 +126,7 @@ Inductive verify (decls : list declaration) : proc -> Prop -> Prop -> Prop :=
 (* | Pmatch  : exp -> list proc -> proc *)
 | Vassign : forall v e (P : exp -> Prop), verify decls (Passign v e) (P e) (P (var v))
 | Vcall   : forall pn p P1 P2, pname_decl decls pn p -> verify decls p P1 P2 -> verify decls (Pcall pn) P1 P2
+| Vweaken : forall p P1 P2 (P : Prop), verify decls p P1 P2 -> (P -> P1) -> verify decls p P P2
 .
 
 (*
