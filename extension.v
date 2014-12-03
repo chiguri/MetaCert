@@ -82,14 +82,25 @@ Variable syntax_type_decl : declaration.
 Definition meta_module := ("meta_syntax", [syntax_proc_decl; syntax_func_decl; syntax_type_decl]).
 *)
 
+Definition test_program_data :=
+ application
+  (application
+   (con
+    (constr_name "assign"))
+   (str "a"))
+  (application
+   (con
+    (constr_name "num"))
+   (num 10%Z)).
+
 (* a := 10 という文vを作るプログラム *)
-Definition test_program := Passign (var_name "v") (application (application (con (constr_name "assign")) (str "a")) (application (con (constr_name "num")) (num 10%Z))).
+Definition test_program := Passign (var_name "v") test_program_data.
 
 (* 書いて気づいたけど、変数の環境をmetaとbaseで切り分けないと100%死ぬよこれ *)
 Goal verify [] test_program True (forall v p, exp_val (var (var_name "v")) v -> proc_meta_base v p -> verify [] p True (exp_val (var (var_name "a")) (num_val 10%Z))).
 unfold test_program.
 apply Vweaken with
- (P1 := forall (v : val) (p : proc), exp_val (application (application (con (constr_name "assign")) (str "a")) (application (con (constr_name "num")) (num 10))) v -> proc_meta_base v p -> verify [] p True (exp_val (var (var_name "a")) (num_val 10%Z))).
+ (P1 := forall (v : val) (p : proc), exp_val test_program_data v -> proc_meta_base v p -> verify [] p True (exp_val (var (var_name "a")) (num_val 10%Z))); unfold test_program_data.
 apply Vassign with (P := fun e => forall (v : val) (p : proc), exp_val e v -> proc_meta_base v p -> verify [] p True (exp_val (var (var_name "a")) (num_val 10%Z))).
 intro.
 intros.
@@ -116,31 +127,31 @@ Qed.
 
 (* v = "a := 10; a := a + 10" *)
 Definition test_program2_data :=
+ application
   (application
-   (application
-    (con
-     (constr_name "seq"))
-    (application
-     (application
-      (con
-       (constr_name "assign"))
-      (str "a"))
-     (application
-      (con (constr_name "num"))
-      (num 10%Z))))
-  (application
-   (application
-    (con
-     (constr_name "assign")) (str "a"))
+   (con
+    (constr_name "seq"))
    (application
     (application
-     (con (constr_name "plus"))
-     (application
-      (con (constr_name "var"))
-      (str "a")))
+     (con
+      (constr_name "assign"))
+     (str "a"))
     (application
      (con (constr_name "num"))
-     (num 10%Z))))).
+     (num 10%Z))))
+ (application
+  (application
+   (con
+    (constr_name "assign")) (str "a"))
+  (application
+   (application
+    (con (constr_name "plus"))
+    (application
+     (con (constr_name "var"))
+     (str "a")))
+   (application
+    (con (constr_name "num"))
+    (num 10%Z)))).
 
 Definition test_program2 :=
  Passign (var_name "v") test_program2_data.
