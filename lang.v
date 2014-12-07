@@ -54,15 +54,12 @@ with con_values : Set :=
 .
 
 
-
-(* functionというより手続き？ *)
 Inductive proc : Set :=
-(*| Pblock  : list vname -> proc -> proc*)
-| Pseq    : proc -> proc -> proc (* 左結合などを意識した方がいいか *)
+| Pseq    : proc -> proc -> proc
 | Pwhile  : exp -> proc -> proc
 | Pmatch  : exp -> list proc -> proc
 | Passign : vname -> exp -> proc
-| Pcall   : pname -> proc (* 引数あったけどやめた。面倒くさい *)
+| Pcall   : pname -> proc
 .
 
 
@@ -80,8 +77,11 @@ Record in_program := { Idecls : list declaration; current : proc }.
 
 Axiom var_val : vname -> val -> Prop.
 Axiom var_val_eq :forall v v1 v2, var_val v v1 -> var_val v v2 -> v1 = v2.
-Axiom var_val_neq : forall v v1 v2, ~ var_val v v1 -> var_val v v2 -> v1 <> v2.
-
+Definition var_val_neq : forall v v1 v2, ~ var_val v v1 -> var_val v v2 -> v1 <> v2.
+intros.
+intro.
+apply H; rewrite H1; apply H0.
+Qed.
 (*
 Inductive list_forall {A B : Type} (P : A -> B -> Prop) : list A -> list B -> Prop :=
 | nil_forall : list_forall P nil nil
@@ -129,11 +129,9 @@ Inductive verify (decls : list declaration) : proc -> Prop -> Prop -> Prop :=
 | Vweaken : forall p P1 P2 (P : Prop), verify decls p P1 P2 -> (P -> P1) -> verify decls p P P2
 .
 
-(*
 Goal verify nil (Passign (var_name "a") (var (var_name "b"))) (exp_val (var (var_name "b")) (num_val 1%Z)) (exp_val (var (var_name "a")) (num_val 1%Z)).
 apply Vassign with (P := fun v => exp_val v (num_val 1%Z)).
 Qed.
-*)
 
 (* lazy verification system (unsound if you do not care about assignment) *)
 

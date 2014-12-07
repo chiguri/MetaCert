@@ -15,6 +15,7 @@ Definition exp_var_constr := constr_def (constr_name "var") [type_name "string"]
 Definition exp_num_constr := constr_def (constr_name "num") [type_name "num"].
 Definition exp_plus_constr := constr_def (constr_name "plus") [type_name "num"; type_name "num"].
 (*
+Not yet cover exp...
 Inductive exp : Set :=
 | var : vname -> exp
 | con : cname -> exp
@@ -29,8 +30,14 @@ Definition syntax_exp_decl := type_decl (type_name "exp") [exp_var_constr; exp_n
 
 
 Inductive exp_meta_base : val -> exp -> Prop :=
-| exp_mb_var : forall v, exp_meta_base (con_val (con_args (con_name (constr_name "var")) (str_val v))) (var (var_name v))
-| exp_mb_num : forall z, exp_meta_base (con_val (con_args (con_name (constr_name "num")) (num_val z))) (num z)
+| exp_mb_var : forall v,
+   exp_meta_base
+    (con_val (con_args (con_name (constr_name "var")) (str_val v)))
+    (var (var_name v))
+| exp_mb_num : forall z,
+   exp_meta_base
+    (con_val (con_args (con_name (constr_name "num")) (num_val z)))
+    (num z)
 | exp_mb_plus : forall e1 e2 v1 v2,
    exp_meta_base e1 v1 -> exp_meta_base e2 v2 ->
    exp_meta_base
@@ -45,21 +52,24 @@ Inductive exp_meta_base : val -> exp -> Prop :=
 
 
 (* for procedure *)
-Definition proc_assign_constr := constr_def (constr_name "assign") [type_name "string"; type_name "exp"].
-Definition proc_seq_constr := constr_def (constr_name "seq") [type_name "proc"; type_name "proc"].
+Definition proc_assign_constr :=
+ constr_def (constr_name "assign") [type_name "string"; type_name "exp"].
+Definition proc_seq_constr :=
+ constr_def (constr_name "seq") [type_name "proc"; type_name "proc"].
 
 (*
 Inductive proc : Set :=
-(*| Pblock  : list vname -> proc -> proc*)
-| Pseq    : proc -> proc -> proc (* 左結合などを意識した方がいいか *)
+| Pseq    : proc -> proc -> proc
 | Pwhile  : exp -> proc -> proc
 | Pmatch  : exp -> list proc -> proc
 | Passign : vname -> exp -> proc
-| Pcall   : pname -> proc (* 引数あったけどやめた。面倒くさい *)
+| Pcall   : pname -> proc
 .
 *)
 
-Definition syntax_proc_decl := type_decl (type_name "proc") [proc_assign_constr; proc_seq_constr].
+Definition syntax_proc_decl :=
+ type_decl (type_name "proc") [proc_assign_constr; proc_seq_constr].
+
 
 Inductive proc_meta_base : val -> proc -> Prop :=
 | proc_mb_assign : forall vn v e, exp_meta_base v e ->
@@ -96,7 +106,7 @@ Definition test_program_data :=
 (* a := 10 という文vを作るプログラム *)
 Definition test_program := Passign (var_name "v") test_program_data.
 
-(* 書いて気づいたけど、変数の環境をmetaとbaseで切り分けないと100%死ぬよこれ *)
+
 Goal verify [] test_program True (forall v p, exp_val (var (var_name "v")) v -> proc_meta_base v p -> verify [] p True (exp_val (var (var_name "a")) (num_val 10%Z))).
 unfold test_program.
 apply Vweaken with
@@ -125,7 +135,7 @@ Qed.
 
 
 
-(* v = "a := 10; a := a + 10" *)
+(* "a := 10; a := a + 10" *)
 Definition test_program2_data :=
  application
   (application
