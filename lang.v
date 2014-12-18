@@ -5,9 +5,6 @@ Import BinIntDef.
 
 
 
-Section lang.
-
-
 Inductive mname := mod_name : string -> mname.
 Inductive vname := var_name : string -> vname.
 Inductive pname := fun_name : string -> pname.
@@ -26,6 +23,8 @@ Inductive binop :=
 | b_time
 | b_div
 | b_mod
+| b_eq
+| b_lt
 | b_append.
 
 
@@ -38,6 +37,19 @@ Inductive exp : Set :=
 | str : string -> exp
 | binary : binop -> exp -> exp -> exp
 | application : exp -> exp -> exp.
+
+
+Coercion num : Z >-> exp.
+Coercion boolean : bool >-> exp.
+
+Open Scope string.
+Open Scope Z.
+
+Notation "'V' @ x" := (var (var_name x)) (at level 10).
+Notation "'C' @ x" := (con (constr_name x)) (at level 10).
+Notation "x +' y" := (binary b_plus x y) (at level 15).
+Notation "'S' @ x" := (str x) (at level 10).
+Notation "x $ y" := (application x y) (at level 14, left associativity).
 
 
 
@@ -53,6 +65,13 @@ with con_values : Set :=
 | con_args : con_values -> val -> con_values
 .
 
+Coercion num_val : Z >-> val.
+Coercion boolean_val : bool >-> val.
+
+Notation "'C' # s" := (con_name (constr_name s)) (at level 10).
+Notation "'S' # x" := (str_val x) (at level 10).
+Notation "x #$ y" := (con_args x y) (at level 14, left associativity).
+Notation "[[ x ]]" := (con_val x) (at level 15).
 
 Inductive proc : Set :=
 | Pseq    : proc -> proc -> proc
@@ -61,6 +80,11 @@ Inductive proc : Set :=
 | Passign : vname -> exp -> proc
 | Pcall   : pname -> proc
 .
+
+
+Notation "x :== y" := (Passign (var_name x) y) (at level 20).
+Notation "P1 ;; P2" := (Pseq P1 P2) (at level 22).
+
 
 
 Inductive declaration :=
@@ -88,17 +112,24 @@ Inductive list_forall {A B : Type} (P : A -> B -> Prop) : list A -> list B -> Pr
 | cons_forall : forall a b la lb, P a b -> list_forall P la lb -> list_forall P (cons a la) (cons b lb).
 *)
 
+Definition Zlt_bool x y :=
+match (x ?= y) with
+| Lt => true
+| _ => false
+end.
 
 (** semantics of exp **)
 Inductive binop_apply : binop -> val -> val -> val -> Prop :=
 | binop_and  : forall b1 b2, binop_apply b_and (boolean_val b1) (boolean_val b2) (boolean_val (andb b1 b2))
 | binop_or   : forall b1 b2, binop_apply b_or  (boolean_val b1) (boolean_val b2) (boolean_val (orb  b1 b2))
-| binop_plus  : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 + z2)%Z)
-| binop_minus : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 - z2)%Z)
-| binop_time  : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 * z2)%Z)
-| binop_div   : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 / z2)%Z)
-| binop_mod   : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 mod z2)%Z)
-| binop_append : forall s1 s2, binop_apply b_plus (str_val s1) (str_val s2) (str_val (append s1 s2))
+| binop_plus  : forall z1 z2, binop_apply b_plus (num_val z1) (num_val z2) (num_val (z1 + z2))
+| binop_minus : forall z1 z2, binop_apply b_minus (num_val z1) (num_val z2) (num_val (z1 - z2))
+| binop_time  : forall z1 z2, binop_apply b_time (num_val z1) (num_val z2) (num_val (z1 * z2))
+| binop_div   : forall z1 z2, binop_apply b_div (num_val z1) (num_val z2) (num_val (z1 / z2))
+| binop_mod   : forall z1 z2, binop_apply b_mod (num_val z1) (num_val z2) (num_val (z1 mod z2))
+| binop_eq   : forall z1 z2, binop_apply b_eq (num_val z1) (num_val z2) (boolean_val (Zeq_bool z1 z2))
+| binop_lt   : forall z1 z2, binop_apply b_lt (num_val z1) (num_val z2) (boolean_val (Zlt_bool z1 z2))
+| binop_append : forall s1 s2, binop_apply b_append (str_val s1) (str_val s2) (str_val (append s1 s2))
 .
 
 Inductive exp_val : exp -> val -> Prop :=
@@ -115,6 +146,9 @@ with exp_val_constructor : exp -> con_values -> Prop :=
 .
 
 
+Notation "x #~> y" := (exp_val x y) (at level 25).
+
+
 
 Axiom pname_decl : list declaration -> pname -> proc -> Prop.
 
@@ -126,13 +160,26 @@ Inductive verify (decls : list declaration) : proc -> Prop -> Prop -> Prop :=
 (* | Pmatch  : exp -> list proc -> proc *)
 | Vassign : forall v e (P : exp -> Prop), verify decls (Passign v e) (P e) (P (var v))
 | Vcall   : forall pn p P1 P2, pname_decl decls pn p -> verify decls p P1 P2 -> verify decls (Pcall pn) P1 P2
-| Vweaken : forall p P1 P2 (P : Prop), verify decls p P1 P2 -> (P -> P1) -> verify decls p P P2
+| Vweaken : forall p (P1 P2 P : Prop), verify decls p P P2 -> (P1 -> P) -> verify decls p P1 P2
 .
 
-Goal verify nil (Passign (var_name "a") (var (var_name "b"))) (exp_val (var (var_name "b")) (num_val 1%Z)) (exp_val (var (var_name "a")) (num_val 1%Z)).
-apply Vassign with (P := fun v => exp_val v (num_val 1%Z)).
+
+Notation "D ||- {- P -} p {- Q -}" := (verify D p P Q) (at level 26).
+
+
+
+Goal nil ||- {- V @ "b" #~> 0 -} "a":== V @ "b" +' 1 {- V @ "a" #~> 1 -}.
+apply Vweaken with (P := V @ "b" +' 1 #~> 1).
+apply Vassign with (P := fun v => v #~> 1).
+intro.
+inversion H; subst.
+apply val_binop with 0 1.
+ auto.
+ constructor.
+ constructor.
 Qed.
 
 (* lazy verification system (unsound if you do not care about assignment) *)
 
-End lang.
+
+
